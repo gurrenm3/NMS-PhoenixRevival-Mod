@@ -3,6 +3,9 @@ using Reloaded.Mod.Interfaces;
 using Reloaded.ModHelper;
 using NoMansSky.Api;
 using libMBIN.NMS.Globals;
+using System.Diagnostics;
+using System;
+using libMBIN.NMS.GameComponents;
 
 namespace NoMansSky.ModTemplate
 {
@@ -12,56 +15,70 @@ namespace NoMansSky.ModTemplate
     public class Mod : NMSMod
     {
         /// <summary>
+        /// Represents how long the cooldown should be.
+        /// </summary>
+        public ModSettingInt cooldownInMinutes = new ModSettingInt(30);
+
+        /// <summary>
+        /// Represents how much health will be regenerated.
+        /// </summary>
+        public ModSettingInt regenPercent = new ModSettingInt(50);
+
+        /// <summary>
+        /// Indicates whether or not it's possible to revive right now.
+        /// </summary>
+        public bool CanRevive => !cooldownTimer.IsRunning ||
+            (cooldownTimer.Elapsed.TotalMinutes >= cooldownInMinutes.Value);
+
+        private Stopwatch cooldownTimer = new Stopwatch();
+        private const int PlayerMaxHealth = 100;
+        private const int DefaultShipMaxHealth = 500;
+
+        /// <summary>
         /// Initializes your mod along with some necessary info.
         /// </summary>
         public Mod(IModConfig _config, IReloadedHooks _hooks, IModLogger _logger) : base(_config, _hooks, _logger)
         {
-            // This is how to log a message to the Reloaded II Console.
-            Logger.WriteLine("Hello World!");
+            cooldownInMinutes.Minimum = 1;
+            regenPercent.Maximum = 100;
+            regenPercent.Minimum = 1;
 
+            var t = new GcDefaultSaveData();
+            
+            
 
-            // The API relies heavily on Mod Events.
-            // Below are 3 examples of using them.
-            Game.OnProfileSelected += () => Logger.WriteLine("The player just selected a save file");
-            Game.OnMainMenu += OnMainMenu;
-            Game.OnGameJoined.AddListener(GameJoined);
-        }
-
-        /// <summary>
-        /// Called once every frame.
-        /// </summary>
-        public override void Update()
-        {
-            // Here is an example of checking for keyboard keys
-            if (Keyboard.IsPressed(Key.UpArrow))
+            // on player health lost.
+            Player.Health.OnValueChanged.Prefix += (newAmount) =>
             {
-                Logger.WriteLine("The Up Arrow was just pressed!");
-            }
-        }
+                bool isAboutToDie = newAmount <= 0;
+                if (isAboutToDie && CanRevive)
+                {
+                    // set health here.
+                    double percent = regenPercent.Value / 100;
+                    newAmount.value = (int)(PlayerMaxHealth * percent);
+                    Logger.WriteLine("Phoenix Revival activated! With your powers of rebirth you avoided death." +
+                        $" Health has been restored to {regenPercent.Value} it's normal value. Can activate" +
+                        $" this ability again in {cooldownInMinutes.Value} minutes.");
 
-        private void OnMainMenu()
-        {
-            Logger.WriteLine("Main Menu shown!");
+                    cooldownTimer.Restart();
+                }
+            };
 
+            // on ship health lost.
+            ActiveShip.Health.OnValueChanged.Prefix += (newAmount) =>
+            {
+                if (CanRevive)
+                {
+                    // set health here.
+                    newAmount.value = DefaultShipMaxHealth / 2;
 
-            GlobalMbinModding();
-        }
+                    Logger.WriteLine("Phoenix Revival activated! With your powers of rebirth you avoided death." +
+                        $" Your ship's health has been restored to 50% of the default value. Can activate" +
+                        $" this ability again in {cooldownInMinutes.Value} minutes.");
 
-        // here is an example of modding globals with the new MemoryManager
-        private void GlobalMbinModding()
-        {
-            var memoryMgr = new MemoryManager(); // create a memory manager.
-
-            // example of getting the run speed from the player globals
-            float currentRunSpeed = memoryMgr.GetValue<float>("GcPlayerGlobals.GroundRunSpeed");
-
-            // example of settng the run speed to twice it's original value.
-            memoryMgr.SetValue("GcPlayerGlobals.GroundRunSpeed", currentRunSpeed * 2);
-        }
-
-        private void GameJoined()
-        {
-            Logger.WriteLine("The game was joined!");
+                    cooldownTimer.Restart();
+                }
+            };
         }
     }
 }
