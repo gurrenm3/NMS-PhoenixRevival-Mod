@@ -48,7 +48,6 @@ namespace NoMansSky.ModTemplate
             // on player health lost.
             Player.Health.OnValueChanged.Prefix += (newAmount) =>
             {
-                Logger.WriteLine($"Health changing to: {newAmount}");
                 if (newAmount.value > 0 || !CanRevive)
                     return;
 
