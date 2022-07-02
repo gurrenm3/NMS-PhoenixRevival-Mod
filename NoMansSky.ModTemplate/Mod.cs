@@ -12,6 +12,11 @@ namespace NoMansSky.ModTemplate
     public class Mod : NMSMod
     {
         /// <summary>
+        /// The link to this repository.
+        /// </summary>
+        public const string githubUrl = "https://github.com/gurrenm3/NMS-PhoenixRevival-Mod";
+
+        /// <summary>
         /// How much of the player's health will regenerate when the ability activates.
         /// </summary>
         public int playerHealthRegenAmount = 50;
