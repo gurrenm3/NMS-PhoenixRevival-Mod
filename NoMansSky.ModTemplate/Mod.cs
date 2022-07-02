@@ -2,10 +2,7 @@
 using Reloaded.Mod.Interfaces;
 using Reloaded.ModHelper;
 using NoMansSky.Api;
-using libMBIN.NMS.Globals;
 using System.Diagnostics;
-using System;
-using libMBIN.NMS.GameComponents;
 
 namespace NoMansSky.ModTemplate
 {
@@ -15,69 +12,63 @@ namespace NoMansSky.ModTemplate
     public class Mod : NMSMod
     {
         /// <summary>
-        /// Represents how long the cooldown should be.
+        /// How much of the player's health will regenerate when the ability activates.
         /// </summary>
-        public ModSettingInt cooldownInMinutes = new ModSettingInt(30);
+        public int playerHealthRegenAmount = 50;
 
         /// <summary>
-        /// Represents how much health will be regenerated.
+        /// How much of the ship's health will regenerate when the ability activates.
         /// </summary>
-        public ModSettingInt regenPercent = new ModSettingInt(50);
+        public int shipHealthRegenAmount = 250;
+
+        /// <summary>
+        /// How many minutes will it take before this ability can activate again.
+        /// </summary>
+        public int cooldownInMinutes = 30;
+
 
         /// <summary>
         /// Indicates whether or not it's possible to revive right now.
         /// </summary>
         public bool CanRevive => !cooldownTimer.IsRunning ||
-            (cooldownTimer.Elapsed.TotalMinutes >= cooldownInMinutes.Value);
+            (cooldownTimer.Elapsed.TotalMinutes >= cooldownInMinutes);
 
         private Stopwatch cooldownTimer = new Stopwatch();
-        private const int PlayerMaxHealth = 100;
-        private const int DefaultShipMaxHealth = 500;
 
         /// <summary>
         /// Initializes your mod along with some necessary info.
         /// </summary>
         public Mod(IModConfig _config, IReloadedHooks _hooks, IModLogger _logger) : base(_config, _hooks, _logger)
         {
-            cooldownInMinutes.Minimum = 1;
-            regenPercent.Maximum = 100;
-            regenPercent.Minimum = 1;
-
-            var t = new GcDefaultSaveData();
-            
-            
-
             // on player health lost.
             Player.Health.OnValueChanged.Prefix += (newAmount) =>
             {
-                bool isAboutToDie = newAmount <= 0;
-                if (isAboutToDie && CanRevive)
-                {
-                    // set health here.
-                    double percent = regenPercent.Value / 100;
-                    newAmount.value = (int)(PlayerMaxHealth * percent);
-                    Logger.WriteLine("Phoenix Revival activated! With your powers of rebirth you avoided death." +
-                        $" Health has been restored to {regenPercent.Value} it's normal value. Can activate" +
-                        $" this ability again in {cooldownInMinutes.Value} minutes.");
+                Logger.WriteLine($"Health changing to: {newAmount}");
+                if (newAmount.value > 0 || !CanRevive)
+                    return;
 
-                    cooldownTimer.Restart();
-                }
+                // set health here.
+                newAmount.value = playerHealthRegenAmount;
+                Logger.WriteLine("Phoenix Revival activated! With your powers of rebirth you avoided death." +
+                    $" Health has been restored by {playerHealthRegenAmount}. This ability can activate" +
+                    $" again in {cooldownInMinutes} minutes.");
+
+                cooldownTimer.Restart();
             };
 
             // on ship health lost.
             ActiveShip.Health.OnValueChanged.Prefix += (newAmount) =>
             {
-                if (CanRevive)
-                {
-                    // set health here.
-                    newAmount.value = DefaultShipMaxHealth / 2;
+                if (newAmount.value > 0 || !CanRevive)
+                    return;
 
-                    Logger.WriteLine("Phoenix Revival activated! With your powers of rebirth you avoided death." +
-                        $" Your ship's health has been restored to 50% of the default value. Can activate" +
-                        $" this ability again in {cooldownInMinutes.Value} minutes.");
+                // set health here.
+                newAmount.value = shipHealthRegenAmount;
+                Logger.WriteLine("Phoenix Revival activated! With your powers of rebirth you avoided death." +
+                    $" Health has been restored by {shipHealthRegenAmount}. This ability can activate" +
+                    $" again in {cooldownInMinutes} minutes.");
 
-                    cooldownTimer.Restart();
-                }
+                cooldownTimer.Restart();
             };
         }
     }
